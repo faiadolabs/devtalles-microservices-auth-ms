@@ -26,10 +26,27 @@ export class AuthService extends PrismaClient implements OnModuleInit {
         return this.jwtService.sign(payload);
     }
 
-    async verifyToken(token:string){
-        // 💡 Here the JWT secret key that's used for verifying the payload 
-        // is the key that was passed in the JwtModule
-        const payload = await this.jwtService.verifyAsync(token);
+    async verifyToken(token: string) {
+        try {
+            // 💡 Here the JWT secret key that's used for verifying the payload 
+            // is the key that was passed in the JwtModule
+            const payload = await this.jwtService.verify(token);
+
+            // Extraigo todos los datos que no voy a poder usar para generar un nuevo token
+            const { sub, iat, exp, ...user } = payload;
+
+            this.logger.log(`Token de ${user.name} verificado y regenerado`);
+            return {
+                user,
+                token: await this.signJWT(user), // genero un nuevo token regenerando el tiempo de conexión autorizada del usuario
+            }
+
+        } catch (error) {
+            throw new RpcException({
+                status: 401,
+                message: 'Invalid token'
+            })
+        }
     }
 
     async registerUser(registerUserDto: RegisterUserDto) {
