@@ -5,15 +5,31 @@ import { RegisterUserDto } from './dto/register-user.dto';
 
 import * as bcrypt from 'bcrypt';
 import { LoginUserDto } from './dto/login-user.dto copy';
+import { JwtService } from '@nestjs/jwt';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService extends PrismaClient implements OnModuleInit {
 
     private readonly logger = new Logger('AuthService')
 
+    constructor(
+        private readonly jwtService: JwtService,
+    ) { super() }
+
     onModuleInit() {
         this.$connect();
         this.logger.log('MongoDB Connected')
+    }
+
+    async signJWT(payload: JwtPayload) {
+        return this.jwtService.sign(payload);
+    }
+
+    async verifyToken(token:string){
+        // 💡 Here the JWT secret key that's used for verifying the payload 
+        // is the key that was passed in the JwtModule
+        const payload = await this.jwtService.verifyAsync(token);
     }
 
     async registerUser(registerUserDto: RegisterUserDto) {
@@ -47,7 +63,7 @@ export class AuthService extends PrismaClient implements OnModuleInit {
             this.logger.log('Registrado nuevo usuario')
             return {
                 user: resto,
-                token: 'TODO:'
+                token: await this.signJWT(resto),
             };
 
         } catch (error) {
@@ -88,7 +104,7 @@ export class AuthService extends PrismaClient implements OnModuleInit {
             this.logger.log('Login usuario ok')
             return {
                 user: rest,
-                token: 'TODO:'
+                token: await this.signJWT(rest),
             };
 
         } catch (error) {
