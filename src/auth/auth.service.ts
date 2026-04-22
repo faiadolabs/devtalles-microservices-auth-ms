@@ -3,6 +3,9 @@ import { RpcException } from '@nestjs/microservices';
 import { PrismaClient } from '@prisma/client';
 import { RegisterUserDto } from './dto/register-user.dto';
 
+import * as bcrypt from 'bcrypt';
+import { LoginUserDto } from './dto/login-user.dto copy';
+
 @Injectable()
 export class AuthService extends PrismaClient implements OnModuleInit {
 
@@ -33,14 +36,17 @@ export class AuthService extends PrismaClient implements OnModuleInit {
             const newUser = await this.user.create({
                 data: {
                     email: email,
-                    password: password,
+                    password: bcrypt.hashSync(password, 10),
                     name: name,
                 }
             })
 
+            // Extraigo el password renombrándolo a cualquier cosa (utilizo guiones bajos) y obtengo el 'resto' que es lo que me interesa
+            const { password: ___, ...resto } = newUser;
+
             this.logger.log('Registrado nuevo usuario')
             return {
-                user: { ...newUser },
+                user: resto,
                 token: 'TODO:'
             };
 
@@ -52,4 +58,44 @@ export class AuthService extends PrismaClient implements OnModuleInit {
         }
     }
 
+    async loginUser(loginUserDto: LoginUserDto) {
+        try {
+            const { email, password } = loginUserDto;
+
+            const user = await this.user.findUnique({
+                where: { email: email }
+            })
+
+            if (!user) {
+                throw new RpcException({
+                    status: 400,
+                    message: 'Invalid Credentials'
+                })
+            }
+
+            const isValidPassword = bcrypt.compareSync(password, user.password);
+
+            if (!isValidPassword) {
+                throw new RpcException({
+                    status: 400,
+                    message: 'Invalid Credentials'
+                })
+            }
+
+            // Extraigo el password renombrándolo a cualquier cosa (utilizo guiones bajos) y obtengo el 'resto' que es lo que me interesa
+            const { password: ___, ...rest } = user;
+
+            this.logger.log('Login usuario ok')
+            return {
+                user: rest,
+                token: 'TODO:'
+            };
+
+        } catch (error) {
+            throw new RpcException({
+                status: 400,
+                message: error.message,
+            })
+        }
+    }
 }
